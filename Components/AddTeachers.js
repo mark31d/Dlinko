@@ -37,9 +37,10 @@ export default function AddTeachers({ navigation, route }) {
   const insets   = useSafeAreaInsets();
   const existing = route.params?.existingTeacher ?? null;
 
+  /* текущий шаг мастера */
   const [step, setStep] = useState(existing ? 4 : 1);
 
-  /* step 1 */
+  /* ────────── STEP-1 (фото / аватар) ────────── */
   const [photoUri, setPhotoUri] = useState(existing?.photo?.uri ?? null);
   const [avatar,   setAvatar  ] = useState(existing?.avatar ?? null);
   const pickPhoto = () =>
@@ -50,11 +51,11 @@ export default function AddTeachers({ navigation, route }) {
       }
     });
 
-  /* step 2 */
+  /* ────────── STEP-2 (имя) ────────── */
   const [name, setName] = useState(existing?.name ?? '');
 
-  /* step 3 */
-  const [subjectList, setSubjectList] = useState(
+  /* ────────── STEP-3 (предмет + цвет) ────────── */
+  const [subjectList] = useState(
     existing && !SUBJECTS.includes(existing?.subject)
       ? [...SUBJECTS, existing.subject]
       : SUBJECTS,
@@ -62,7 +63,7 @@ export default function AddTeachers({ navigation, route }) {
   const [subject, setSubject] = useState(existing?.subject ?? '');
   const [color,   setColor  ] = useState(existing?.color ?? null);
 
-  /* validation */
+  /* ─── helper для Next-кнопки ─── */
   const canNext = () => {
     if (step === 1) return !!(photoUri || avatar);
     if (step === 2) return !!name.trim();
@@ -70,7 +71,7 @@ export default function AddTeachers({ navigation, route }) {
     return true;
   };
 
-  /* save */
+  /* ─── сохранить ─── */
   const saveTeacher = () => {
     const payload = {
       id     : existing?.id ?? Date.now().toString(),
@@ -80,22 +81,21 @@ export default function AddTeachers({ navigation, route }) {
       avatar,
       photo  : photoUri ? { uri: photoUri } : null,
     };
-
     navigation.navigate('Tabs', {
       screen: 'TeachersTab',
       params: existing ? { updatedTeacher: payload } : { newTeacher: payload },
     });
   };
 
-  /* steps */
+  /* ────────── рендер шагов ────────── */
   const renderStep = () => {
-    /** STEP 1 **/
+    /* ---------- STEP-1 ---------- */
     if (step === 1) {
       return (
         <>
           <Text style={styles.title}>Add photo or choose a character</Text>
           <View style={styles.row}>
-            {/* plus / chosen */}
+            {/* кнопка + / выбранное фото */}
             <TouchableOpacity style={styles.avatarWrap} onPress={pickPhoto}>
               {photoUri || avatar ? (
                 <Image
@@ -113,7 +113,7 @@ export default function AddTeachers({ navigation, route }) {
               )}
             </TouchableOpacity>
 
-            {/* ready avatars */}
+            {/* готовые аватары-кролики */}
             {avatars.map(({ src, color }, i) => (
               <TouchableOpacity
                 key={i}
@@ -135,7 +135,7 @@ export default function AddTeachers({ navigation, route }) {
       );
     }
 
-    /** STEP 2 **/
+    /* ---------- STEP-2 ---------- */
     if (step === 2) {
       return (
         <>
@@ -151,7 +151,7 @@ export default function AddTeachers({ navigation, route }) {
       );
     }
 
-    /** STEP 3 **/
+    /* ---------- STEP-3 ---------- */
     if (step === 3) {
       return (
         <>
@@ -164,16 +164,14 @@ export default function AddTeachers({ navigation, route }) {
             onChangeText={setSubject}
           />
 
+          {/* теги-подсказки */}
           <View style={styles.tagRow}>
             {subjectList
               .filter(s => s.toLowerCase().includes(subject.trim().toLowerCase()))
               .map(s => (
                 <TouchableOpacity
                   key={s}
-                  style={[
-                    styles.tag,
-                    subject === s && styles.tagSelected,
-                  ]}
+                  style={[styles.tag, subject === s && styles.tagSelected]}
                   onPress={() => setSubject(s)}
                 >
                   <Text style={subject === s ? styles.tagSelTxt : styles.tagTxt}>{s}</Text>
@@ -181,6 +179,7 @@ export default function AddTeachers({ navigation, route }) {
               ))}
           </View>
 
+          {/* выбор цвета */}
           <Text style={styles.subTitle}>Choose color</Text>
           <View style={styles.colorRow}>
             {COLORS.map(c => (
@@ -198,47 +197,65 @@ export default function AddTeachers({ navigation, route }) {
       );
     }
 
-    /** STEP 4 (review) **/
+    /* ---------- STEP-4 (review & inline edit) ---------- */
     return (
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
-      >
-        <Text style={styles.title}>Add photo or choose a character</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        {/* фото / аватар */}
+        <Text style={styles.title}>Photo / character</Text>
         <View style={styles.row}>
-          <Image
-            source={photoUri ? { uri: photoUri } : avatar || Av1}
-            style={styles.avatarImgLg}
-          />
+          <TouchableOpacity onPress={pickPhoto}>
+            <Image
+              source={photoUri ? { uri: photoUri } : avatar || Av1}
+              style={styles.avatarImgLg}
+            />
+          </TouchableOpacity>
         </View>
 
+        {/* имя (editable) */}
         <Text style={styles.title}>Teacher's name and surname</Text>
-        <TextInput style={styles.input} editable={false} value={name} />
+        <TextInput
+          style={styles.input}
+          placeholder="Ivan Ivanov"
+          placeholderTextColor="#AAA"
+          value={name}
+          onChangeText={setName}
+        />
 
-        <Text style={styles.title}>What is the subject?</Text>
-        <TextInput style={styles.input} editable={false} value={subject} />
+        {/* предмет (editable) */}
+        <Text style={styles.title}>Subject</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Subject name"
+          placeholderTextColor="#AAA"
+          value={subject}
+          onChangeText={setSubject}
+        />
 
         <Text style={styles.subTitle}>Choose color</Text>
         <View style={styles.colorRow}>
           {COLORS.map(c => (
-            <View
+            <TouchableOpacity
               key={c}
               style={[
                 styles.colorDot,
                 { borderColor: c, backgroundColor: color === c ? c : '#fff' },
               ]}
+              onPress={() => setColor(c)}
             />
           ))}
         </View>
 
+        {/* сохранить */}
         <TouchableOpacity
           style={[
             styles.savePlain,
-            !(photoUri || avatar) || !name || !subject || !color
+            !(photoUri || avatar) || !name.trim() || !subject.trim() || !color
               ? { opacity: 0.4 }
               : null,
           ]}
-          disabled={!(photoUri || avatar) || !name || !subject || !color}
+          disabled={
+            !(photoUri || avatar) || !name.trim() || !subject.trim() || !color
+          }
           onPress={saveTeacher}
         >
           <Text style={styles.saveTxtPurple}>Save</Text>
@@ -247,15 +264,13 @@ export default function AddTeachers({ navigation, route }) {
     );
   };
 
-  /* UI */
+  /* ────────── UI оболочка ────────── */
   return (
     <>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <LinearGradient colors={GRADIENT} style={styles.root}>
-        <SafeAreaView
-          edges={['left', 'right', 'bottom']}
-          style={[styles.safe, { paddingTop: insets.top }]}
-        >
+        <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safe, { paddingTop: insets.top }]}>
+          {/* back / step control */}
           <TouchableOpacity
             style={styles.backBtn}
             onPress={() => (step > 1 ? setStep(step - 1) : navigation.goBack())}
@@ -272,9 +287,7 @@ export default function AddTeachers({ navigation, route }) {
                 disabled={!canNext()}
                 onPress={() => setStep(step + 1)}
               >
-                <Text style={styles.nextTxt}>
-                  {step === 3 ? 'Review' : 'Next step'}
-                </Text>
+                <Text style={styles.nextTxt}>{step === 3 ? 'Review' : 'Next step'}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -284,7 +297,7 @@ export default function AddTeachers({ navigation, route }) {
   );
 }
 
-/* ─── styles ─── */
+/* ────────── styles ────────── */
 const P = 24;
 const R = 30;
 const styles = StyleSheet.create({

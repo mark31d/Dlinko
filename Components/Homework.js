@@ -23,12 +23,12 @@ import React, {
   import { useFocusEffect } from '@react-navigation/native';
   import { MMKV } from 'react-native-mmkv';
   
-  /* ─── icons ─── */
-  const ICON_CHEVRON = require('../assets/arrowDown.png');
-  const ICON_GEAR    = require('../assets/gear.png');
-  const ICON_MORE    = require('../assets/dots.png');
-  const ICON_BACK    = require('../assets/arrowBack.png');
-  const BUNNY_SRC    = require('../assets/studybunny.png');
+  /* ─── assets ─── */
+  const ICON_CHEVRON  = require('../assets/arrowDown.png');
+  const ICON_GEAR     = require('../assets/gear.png');
+  const ICON_MORE     = require('../assets/dots.png');
+  const ICON_BACK     = require('../assets/arrowBack.png');
+  const BUNNY_SRC     = require('../assets/studybunny.png');
   const DEFAULT_PHOTO = require('../assets/default.png');
   
   /* ─── constants ─── */
@@ -58,7 +58,7 @@ import React, {
     return `${d}/${m}/${y} ${to12h(time)}`;
   };
   
-  /* ─── градиентный контейнер (используется только во втором окне) ─── */
+  /* ─── gradient chip (used only in detail overlay) ─── */
   const DueBox = ({ children, done }) =>
     done ? (
       <Text style={[styles.due, styles.textDone]}>{children}</Text>
@@ -74,13 +74,12 @@ import React, {
     );
   
   /* ───────────────────────────────────────────── */
-  
   export default function Homework({ navigation, route }) {
     /* state */
-    const [allTasks, setAllTasks]   = useState([]);
-    const [selected, setSelected]   = useState(new Date().toISOString().slice(0, 10));
-    const [color, setColor]         = useState(null);
-    const [showCal, setShowCal]     = useState(false);
+    const [allTasks, setAllTasks] = useState([]);
+    const [selected, setSelected] = useState(new Date().toISOString().slice(0, 10));
+    const [color, setColor]       = useState(null);
+    const [showCal, setShowCal]   = useState(false);
   
     /* detail overlay */
     const [detailVisible, setDetailVisible] = useState(false);
@@ -100,23 +99,23 @@ import React, {
       storage.set(STORAGE_KEY, JSON.stringify(allTasks));
     }, [allTasks]);
   
-    /* handle params */
+    /* accept params */
     useEffect(() => {
-      if (route.params?.newHomework) {
-        const hw = { ...route.params.newHomework, completed: false };
+      const { newHomework, updatedHomework } = route.params || {};
+      if (newHomework?.id) {
+        const hw = { ...newHomework, completed: false };
         setAllTasks(prev => [...prev, hw]);
         setSelected(hw.dateISO);
         navigation.setParams({ newHomework: undefined });
       }
-      if (route.params?.updatedHomework) {
-        const u = route.params.updatedHomework;
+      if (updatedHomework?.id) {
         setAllTasks(prev =>
-          prev.map(t => (t.id === u.id ? { ...u, completed: t.completed ?? false } : t)),
+          prev.map(t => (t.id === updatedHomework.id ? { ...updatedHomework, completed: t.completed ?? false } : t)),
         );
-        setSelected(u.dateISO);
+        setSelected(updatedHomework.dateISO);
         navigation.setParams({ updatedHomework: undefined });
       }
-    }, [route.params]);
+    }, [route.params, navigation]);
   
     /* calendar arrow */
     const rot = useRef(new Animated.Value(0)).current;
@@ -150,121 +149,113 @@ import React, {
       setDetailVisible(true);
     };
   
-    /* ─────────── render ─────────── */
+    /* ─── header + filters ─── */
+    const Header = () => (
+      <>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.dateRow} onPress={toggleCal}>
+            <Text style={styles.headerDate}>{toHeader(selected)}</Text>
+            <Animated.Image
+              source={ICON_CHEVRON}
+              style={[styles.chevron, { transform: [{ rotate: arrowDeg }] }]}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.gearBtn} onPress={() => navigation.navigate('Settings')}>
+            <Image source={ICON_GEAR} style={styles.gearIcon} />
+          </TouchableOpacity>
+        </View>
+  
+        {showCal && (
+          <Calendar
+            style={styles.calendar}
+            theme={{ calendarBackground: '#FFF' }}
+            onDayPress={d => {
+              setSelected(d.dateString);
+              toggleCal();
+            }}
+            markedDates={{
+              [selected]: { selected: true, selectedColor: FILTER_COLORS[0], selectedTextColor: '#fff' },
+            }}
+          />
+        )}
+  
+        <View style={styles.filterContainer}>
+          <Text style={styles.sectionTitle}>Homework</Text>
+          <View style={styles.filterRow}>
+            {FILTER_COLORS.map(c => (
+              <TouchableOpacity
+                key={c}
+                style={[
+                  styles.dot,
+                  {
+                    borderColor: c,
+                    backgroundColor: color === c ? c : '#fff',
+                    opacity: color && color !== c ? 0.25 : 1,
+                  },
+                ]}
+                onPress={() => setColor(prev => (prev === c ? null : c))}
+              />
+            ))}
+          </View>
+        </View>
+      </>
+    );
+  
+    /* ─── render ─── */
     return (
       <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.root}>
         <SafeAreaView edges={['top']} style={styles.safe}>
-          <ScrollView contentContainerStyle={styles.scroll} nestedScrollEnabled>
-            {/* HEADER */}
-            <View style={styles.headerRow}>
-              <TouchableOpacity style={styles.dateRow} onPress={toggleCal}>
-                <Text style={styles.headerDate}>{toHeader(selected)}</Text>
-                <Animated.Image
-                  source={ICON_CHEVRON}
-                  style={[styles.chevron, { transform: [{ rotate: arrowDeg }] }]}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.gearBtn} onPress={() => navigation.navigate('Settings')}>
-                <Image source={ICON_GEAR} style={styles.gearIcon} />
-              </TouchableOpacity>
-            </View>
-  
-            {/* CALENDAR */}
-            {showCal && (
-              <Calendar
-                style={styles.calendar}
-                theme={{ calendarBackground: '#FFF' }}
-                onDayPress={d => {
-                  setSelected(d.dateString);
-                  toggleCal();
-                }}
-                markedDates={{
-                  [selected]: {
-                    selected: true,
-                    selectedColor: FILTER_COLORS[0],
-                    selectedTextColor: '#fff',
-                  },
-                }}
-              />
-            )}
-  
-            {/* FILTER */}
-            <View style={styles.filterContainer}>
-              <Text style={styles.sectionTitle}>Homework</Text>
-              <View style={styles.filterRow}>
-                {FILTER_COLORS.map(c => (
-                  <TouchableOpacity
-                    key={c}
-                    style={[
-                      styles.dot,
-                      {
-                        borderColor: c,
-                        backgroundColor: color === c ? c : '#fff',
-                        opacity: color && color !== c ? 0.25 : 1,
-                      },
-                    ]}
-                    onPress={() => setColor(prev => (prev === c ? null : c))}
-                  />
-                ))}
-              </View>
-            </View>
-  
-            {/* LIST */}
-            {dayTasks.length === 0 ? (
+          <FlatList
+            data={dayTasks}
+            keyExtractor={item => item.id}
+            ListHeaderComponent={Header}
+            ListEmptyComponent={() => (
               <View style={styles.emptyWrap}>
                 <Image source={BUNNY_SRC} style={styles.bunny} resizeMode="contain" />
                 <Text style={styles.emptyText}>No homework for this date</Text>
               </View>
-            ) : (
-              <FlatList
-                data={dayTasks}
-                keyExtractor={item => item.id}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 120 }}
-                nestedScrollEnabled
-                renderItem={({ item }) => {
-                  const done = item.completed;
-                  return (
-                    <View style={[styles.card, { backgroundColor: item.color }]}>
-                      <Image source={item.photo || DEFAULT_PHOTO} style={styles.homeworkImg} />
-                      <View style={styles.cardContent}>
-                        <Text style={[styles.subject, done && styles.subjectDone]}>{item.subject}</Text>
-                        <Text style={[styles.reason, done && styles.textDone]}>{item.reason}</Text>
-                        {item.tasks?.length > 1 && (
-                          <Text style={[styles.other, done && styles.textDone]}>
-                            +{item.tasks.length - 1} other tasks
-                          </Text>
-                        )}
-  
-                        {/* обычный текстовый due без градиента */}
-                        <Text style={[styles.due, done && styles.textDone]}>
-                          {`Until ${formatDue(item.dateISO, item.deadlineTime)}`}
-                        </Text>
-                      </View>
-  
-                      <View style={styles.rightRow}>
-                        <TouchableOpacity
-                          style={[styles.circle, done && styles.circleDone]}
-                          onPress={() => handleToggle(item.id)}
-                        />
-                        <TouchableOpacity style={styles.moreBtn} onPress={() => openDetail(item)}>
-                          <Image source={ICON_MORE} style={styles.moreIcon} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  );
-                }}
-              />
             )}
-          </ScrollView>
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => {
+              const done = item.completed;
+              return (
+                <View style={[styles.card, { backgroundColor: item.color }]}>
+                  <Image source={item.photo || DEFAULT_PHOTO} style={styles.homeworkImg} />
+                  <View style={styles.cardContent}>
+                    <Text style={[styles.subject, done && styles.subjectDone]}>{item.subject}</Text>
+                    <Text style={[styles.reason, done && styles.textDone]}>{item.reason}</Text>
+                    {item.tasks?.length > 1 && (
+                      <Text style={[styles.other, done && styles.textDone]}>
+                        +{item.tasks.length - 1} other tasks
+                      </Text>
+                    )}
+                    <Text style={[styles.due, done && styles.textDone]}>
+                      {`Until ${formatDue(item.dateISO, item.deadlineTime)}`}
+                    </Text>
+                  </View>
+  
+                  <View style={styles.rightRow}>
+                    <TouchableOpacity
+                      style={[styles.circle, done && styles.circleDone]}
+                      onPress={() => handleToggle(item.id)}
+                    />
+                    <TouchableOpacity style={styles.moreBtn} onPress={() => openDetail(item)}>
+                      <Image source={ICON_MORE} style={styles.moreIcon} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            }}
+          />
         </SafeAreaView>
   
-        {/* DETAIL OVERLAY */}
+        {/* DETAIL OVERLAY (оставляем ScrollView внутри модалки) */}
         {detailVisible && current && (
           <View style={styles.detailWrap}>
             <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.detailRoot}>
               <SafeAreaView style={{ flex: 1 }}>
-                <ScrollView contentContainerStyle={styles.detailScroll}>
+                <ScrollView contentContainerStyle={styles.detailScroll} showsVerticalScrollIndicator={false}>
                   {/* HEADER */}
                   <View style={styles.detailHeader}>
                     <TouchableOpacity onPress={() => setDetailVisible(false)} style={styles.backRow}>
@@ -303,7 +294,7 @@ import React, {
                     </TouchableOpacity>
                   ))}
   
-                  {/* DUE CHIP  (только здесь градиент) */}
+                  {/* DUE CHIP */}
                   <View style={styles.chip}>
                     <DueBox>{`Until ${formatDue(current.dateISO, current.deadlineTime)}`}</DueBox>
                   </View>
@@ -319,10 +310,11 @@ import React, {
   /* ────────────── Styles ────────────── */
   const P = 24;
   const styles = StyleSheet.create({
-    /* main */
     root: { flex: 1 },
     safe: { flex: 1 },
-    scroll: { paddingHorizontal: P, paddingTop: 20 },
+  
+    /* вместо scroll */
+    listContent: { paddingHorizontal: P, paddingTop: 20, paddingBottom: 120 },
   
     headerRow: { flexDirection: 'row', alignItems: 'center' },
     dateRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
@@ -359,19 +351,12 @@ import React, {
     },
     sectionTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
     filterRow: { flexDirection: 'row' },
-    dot: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      borderWidth: 2,
-      marginLeft: 12,
-    },
+    dot: { width: 38, height: 38, borderRadius: 19, borderWidth: 2, marginLeft: 12 },
   
-    emptyWrap: { flex: 1, alignItems: 'center', marginTop: 40 },
+    emptyWrap: { alignItems: 'center', marginTop: 40 },
     bunny: { width: width * 0.75, height: height * 0.5, marginTop: -70 },
     emptyText: { fontSize: 20, color: '#fff', opacity: 0.8, marginTop: 12 },
   
-    /* card */
     card: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -386,13 +371,11 @@ import React, {
     other: { color: '#fff', fontSize: 12, fontWeight: '600', marginTop: 3 },
     dueBox: {
       alignSelf: 'flex-start',
-      paddingHorizontal: -25,
+      paddingHorizontal: 12,
       paddingVertical: 4,
-      width:220,
-      height:40,
       borderRadius: 20,
     },
-    due: { color: '#fff', fontSize: 16, marginTop: 3 , paddingLeft:12,},
+    due: { color: '#fff', fontSize: 12, marginTop: 3 },
   
     rightRow: { flexDirection: 'row', alignItems: 'center' },
     circle: {
@@ -415,22 +398,11 @@ import React, {
     detailRoot: { flex: 1 },
     detailScroll: { padding: P, paddingBottom: 40 },
   
-    detailHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 4,
-      marginBottom: 20,
-    },
+    detailHeader: { flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 20 },
     backRow: { flexDirection: 'row', alignItems: 'center' },
     backIcon: { width: 24, height: 24, tintColor: '#fff', marginRight: 6, resizeMode: 'contain' },
     back: { color: '#fff', fontSize: 16 },
-    detailTitle: {
-      flex: 1,
-      color: '#fff',
-      fontSize: 24,
-      fontWeight: '700',
-      marginLeft: 12,
-    },
+    detailTitle: { flex: 1, color: '#fff', fontSize: 24, fontWeight: '700', marginLeft: 12 },
     edit: { color: '#fff', fontSize: 16, marginLeft: 12 },
   
     detailImg: {
@@ -445,6 +417,5 @@ import React, {
     taskTextDetail: { flex: 1, color: '#fff', fontSize: 16 },
   
     chip: { alignSelf: 'center', marginTop: 24 },
-  
   });
   
