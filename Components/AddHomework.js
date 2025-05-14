@@ -15,7 +15,10 @@ import LinearGradient from 'react-native-linear-gradient';
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { launchImageLibrary } from 'react-native-image-picker';
+import { Alert } from 'react-native';
+const isValidTime = str => /^([01]\d|2[0-3]):([0-5]\d)$/.test(str);
 
+const TIME_HINT = 'Enter time as HH:mm, e.g. 09:30';
 const { width } = Dimensions.get('window');
 const SUBJECT_HIGHLIGHT = '#FD8200';
 const GRADIENT         = ['#6E63FF', '#FF3CBD'];
@@ -66,6 +69,12 @@ export default function AddHomeWork({ navigation, route }) {
   const [showDateCal, setShowDateCal]     = useState(false);
   const [deadlineTime, setDeadlineTime]   = useState(existing?.deadlineTime ?? '');
   const [selectedColor, setSelectedColor] = useState(existing?.color ?? null);
+  const isReviewValid = () =>
+    !!selectedSubject &&
+    tasks.length > 0 &&
+    !!deadlineDate &&
+    isValidTime(deadlineTime) &&        // ← тепер перевіряємо формат
+    !!selectedColor;
   const clearDeadlines = () => {
     setDeadlineDate('');
     setDeadlineTime('');
@@ -78,40 +87,51 @@ export default function AddHomeWork({ navigation, route }) {
     launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, res => {
       if (!res.didCancel && res.assets?.length) setPhotoUri(res.assets[0].uri);
     });
-
-  /* ────────────── Finish ────────────── */
-  const finish = () => {
-    const todayISO = new Date().toISOString().slice(0, 10);        // YYYY-MM-DD
-    let dateISO = todayISO;
-    if (deadlineDate) {
-      const [dd, mm, yy] = deadlineDate.split('.');                // DD.MM.YY
-      dateISO = `20${yy}-${mm}-${dd}`;                             // YYYY-MM-DD
-    }
-    const payload = {
-      id     : existing?.id ?? Date.now().toString(),
-      subject: selectedSubject,
-      tasks,
-      deadlineDate,
-      deadlineTime,
-      photo  : photoUri ? { uri: photoUri } : DefaultPhoto,
-      color  : selectedColor,
-      dateISO,
-      reason : tasks[0] || '',
+    const finish = () => {
+  
+      if (!selectedSubject)         { Alert.alert('Missing subject');      return; }
+      if (!tasks.length)            { Alert.alert('Add at least one task');return; }
+      if (!deadlineDate)            { Alert.alert('Pick a due date');      return; }
+      if (!isValidTime(deadlineTime)){ Alert.alert(
+          'Wrong time format',
+          'Please enter time in HH:mm (e.g. 09:30 or 18:05)'
+        ); return;
+      }
+      if (!selectedColor)           { Alert.alert('Pick a colour');        return; }
+    
+      /* 2️⃣  формуємо ISO-дату (YYYY-MM-DD) */
+      const [dd, mm, yy] = deadlineDate.split('.');          // DD.MM.YY
+      const dateISO      = `20${yy}-${mm}-${dd}`;            // 2025-04-30
+    
+      /* 3️⃣  складаємо payload */
+      const payload = {
+        id     : existing?.id ?? Date.now().toString(),
+        subject: selectedSubject,
+        tasks,
+        deadlineDate,
+        deadlineTime,                                         // гарантовано валідно
+        photo  : photoUri ? { uri: photoUri } : DefaultPhoto,
+        color  : selectedColor,
+        dateISO,
+        reason : tasks[0] || '',
+      };
+    
+      /* 4️⃣  повертаємось на HomeTab */
+      navigation.navigate('Tabs', {
+        screen: 'HomeTab',
+        params: existing
+          ? { updatedHomework: payload }
+          : { newHomework: payload },
+      });
     };
-
-    navigation.navigate('Tabs', {
-      screen: 'HomeTab',
-      params: existing ? { updatedHomework: payload }
-                       : {  newHomework   : payload },
-    });
-  };
-
   /* ────────────── Next-button доступность ────────────── */
   const canNext = () => {
     switch (step) {
       case 1: return !!selectedSubject;
       case 2: return tasks.length > 0;
-      case 3: return !!deadlineDate && !!deadlineTime && !!selectedColor;
+      case 3: return !!deadlineDate &&
+              isValidTime(deadlineTime) &&
+               !!selectedColor;
       case 4: return true;
       default: return false;
     }
@@ -220,12 +240,18 @@ export default function AddHomeWork({ navigation, route }) {
               />
             )}
             <TextInput
-              style={[styles.input, { marginTop: 12 }]}
-              placeholder="HH:mm"
-              placeholderTextColor="#AAA"
-              value={deadlineTime}
-              onChangeText={setDeadlineTime}
-            />
+  style={[
+    styles.input,
+    { marginTop: 12 },
+    !!deadlineTime && !isValidTime(deadlineTime) && { borderColor: '#FF3448', borderWidth: 2 },
+  ]}
+  placeholder={TIME_HINT}
+  placeholderTextColor="#AAA"
+  keyboardType="number-pad"
+  maxLength={5}
+  value={deadlineTime}
+  onChangeText={setDeadlineTime}
+/>
             <Text style={styles.sectionLabel}>Choose color</Text>
             <View style={styles.colorRow}>
               {COLORS.map(c => (
@@ -360,13 +386,19 @@ export default function AddHomeWork({ navigation, route }) {
                 }}
               />
             )}
-            <TextInput
-              style={[styles.input, { marginTop: 12 }]}
-              placeholder="HH:mm"
-              placeholderTextColor="#AAA"
-              value={deadlineTime}
-              onChangeText={setDeadlineTime}
-            />
+         <TextInput
+  style={[
+    styles.input,
+    { marginTop: 12 },
+    !!deadlineTime && !isValidTime(deadlineTime) && { borderColor: '#FF3448', borderWidth: 2 }
+  ]}
+  placeholder={TIME_HINT}
+  placeholderTextColor="#AAA"
+  keyboardType="number-pad"
+  maxLength={5}
+  value={deadlineTime}
+  onChangeText={setDeadlineTime}
+/>
 
             {/* Color */}
             <Text style={styles.sectionLabel}>Color</Text>
@@ -401,37 +433,19 @@ export default function AddHomeWork({ navigation, route }) {
               )}
             </TouchableOpacity>
 
-            {/* SAVE */}
-            <TouchableOpacity
-              style={[
-                styles.nextBtn,
-                {
-                  marginTop: 32,
-                  opacity:
-                    !(
-                      selectedSubject &&
-                      tasks.length &&
-                      deadlineDate &&
-                      deadlineTime &&
-                      selectedColor
-                    )
-                      ? 0.5
-                      : 1,
-                },
-              ]}
-              disabled={
-                !(
-                  selectedSubject &&
-                  tasks.length &&
-                  deadlineDate &&
-                  deadlineTime &&
-                  selectedColor
-                )
-              }
-              onPress={finish}
-            >
-              <Text style={styles.nextText}>Save</Text>
-            </TouchableOpacity>
+          
+
+<TouchableOpacity
+  style={[
+    styles.nextBtn,
+    { marginTop: 32, opacity: isReviewValid() ? 1 : 0.5 }  // ← 1-рядкова логіка
+  ]}
+  disabled={!isReviewValid()}                               // ← тепер дійсно блокує
+  onPress={finish}
+>
+  <Text style={styles.nextText}>Save</Text>
+</TouchableOpacity>
+
           </ScrollView>
         );
 
