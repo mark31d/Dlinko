@@ -16,9 +16,10 @@ import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { Alert } from 'react-native';
-const isValidTime = str => /^([01]\d|2[0-3]):([0-5]\d)$/.test(str);
 
-const TIME_HINT = 'Enter time as HH:mm, e.g. 09:30';
+const isValidTime = str => /^([01]\d|2[0-3])-([0-5]\d)$/.test(str);
+
+const TIME_HINT = 'Enter time as HH-mm, e.g. 09-30';
 const { width } = Dimensions.get('window');
 const SUBJECT_HIGHLIGHT = '#FD8200';
 const GRADIENT         = ['#6E63FF', '#FF3CBD'];
@@ -94,7 +95,7 @@ export default function AddHomeWork({ navigation, route }) {
       if (!deadlineDate)            { Alert.alert('Pick a due date');      return; }
       if (!isValidTime(deadlineTime)){ Alert.alert(
           'Wrong time format',
-          'Please enter time in HH:mm (e.g. 09:30 or 18:05)'
+          'Please enter time in HH:mm (e.g. 09-30 or 18-05)'
         ); return;
       }
       if (!selectedColor)           { Alert.alert('Pick a colour');        return; }

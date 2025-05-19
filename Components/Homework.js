@@ -54,10 +54,14 @@ const to12h = (hhmm) => {
     const h12    = h % 12 === 0 ? 12 : h % 12;
     return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
   };
-const formatDue = (iso, time = '') => {
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y} ${to12h(time)}`;
-};
+  const formatDue = (iso, time = '') => {
+       const [y, m, d] = iso.split('-');
+      
+       const displayTime = isValidTime(time)
+         ? time.replace('-', ':')
+         : '–';
+       return `${d}/${m}/${y} ${displayTime}`;
+     };
 
 /* ─── gradient chip (used only in detail overlay) ─── */
 const DueBox = ({ children, done }) =>
